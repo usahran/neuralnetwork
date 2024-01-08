@@ -21,12 +21,12 @@
             min-height:50px;
         }
         #file_container{
-            width: 300px;
+            width:400px;
             display:flex;
         }
         #file_load{
             width:100%;
-            height:300px;
+            height:200px;
             border:1px dashed black;
             display:flex;
             align-items:center;
@@ -37,12 +37,12 @@
         <div id="container">
             <div id="file_container">
                 <div id="file_load">
-                    Drop "pre_training_network" file
+                    Drop "pre_training_network" file <!-- _0.4, _0.75는 훈련 테스트 정확도 % -->
                 </div>
             </div>
             <div id="btns">
-                <button onclick="data_set_train()">data_set_train</button> <!-- data.js 로드된 데이터 훈련 시작 -->
-                <button onclick="test(2)">print network</button> <!-- 네트워크 결과 출력 -->
+                <button onclick="data_set_train()">data set train</button> <!-- data.js 로드된 데이터 훈련 시작 -->
+                <button onclick="test(2)">print network</button> <!-- 모든 결과 출력 -->
                 <button onclick="canvas_clear()">clear</button> <!-- 그림판 초기화 -->
                 <button onclick="train()">train</button> <!-- 수동 훈련 -->
                 <input id="key_value" type="text" /> <!-- 수동 훈련 값 -->
@@ -53,14 +53,14 @@
                     <canvas id="myCanvas"></canvas>
                 </div>
                 <div id="result">
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
-                    <canvas class="copyCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
+                    <canvas class="convCanvas" width="10px" height="10px"></canvas>
                 </div>
                 <div id="statis">
                     <canvas id="barChart"></canvas>
@@ -71,28 +71,32 @@
             </div>
         </div>
     </body>
-    <!-- <script src="data.js"></script> --> <!-- 훈련 데이터 이미지 50000개 -->
+    <!-- 훈련 데이터 이미지 50000개 -->
+    <!-- Mnist dataset train-images.idx3-ubyte, train-labels.idx3-ubyte 가공하여 data.js파일 JSON으로 가져옴 -->
+    <!-- 데이터 원본 소유자 Mnist 저작권이 있을 수 있어 코드에는 없고 공식 사이트에서 받아주세요 -->
+    <!-- <script src="data.js"></script> -->
     <script src="models/convolution.js"></script>
     <script src="models/link.js"></script>
     <script src="models/neural.js"></script>
     <script src="models/network.js"></script>
     <script>
-        var datatransfer = document.getElementById('file_load');
-        datatransfer.addEventListener('dragenter', function (e) {
+        // 대충 데이터 셋 입력 받아 적용하는 곳
+        var datatransfer = document.querySelector('#file_load');
+        datatransfer.addEventListener('dragenter', function(e){
             e.preventDefault();
             datatransfer.style.border = '2px dashed blue';
         });
 
-        datatransfer.addEventListener('dragover', function (e) {
+        datatransfer.addEventListener('dragover', function(e){
             e.preventDefault();
         });
 
-        datatransfer.addEventListener('dragleave', function (e) {
+        datatransfer.addEventListener('dragleave', function(e){
             e.preventDefault();
             datatransfer.style.border = '1px dashed black';
         });
 
-        datatransfer.addEventListener('drop', function (e) {
+        datatransfer.addEventListener('drop', function(e){
             var files = e.dataTransfer.files;
             load(files);
             e.preventDefault();
@@ -119,9 +123,10 @@
             }
         }
 
+        // 네트워크 생성 및 초기화
         const myCanvas = document.querySelector("#myCanvas");
         const networkCanvas = document.querySelector("#network")
-        const copyCanvas = document.querySelectorAll(".copyCanvas");
+        const convCanvas = document.querySelectorAll(".convCanvas");
         const barChart = document.querySelector("#barChart");
         networkCanvas.width = 1000;
         networkCanvas.height = 1200;
@@ -139,6 +144,18 @@
             network_ctx.save();
             network_ctx.globalAlpha = 0.5;
         }
+        const networkString = localStorage.getItem("networkInfo");
+        const networkInfo = networkString ? JSON.parse(networkString) : null;
+        const filter_count = networkInfo ? networkInfo.convolution.numFilters : 8;
+        let size = networkInfo ? networkInfo.network.size : [588, 60, 60, 10];
+        let learningLate = networkInfo ? networkInfo.network.learningLate : 0.001;
+        const convolution = networkInfo ? Convolution.load(networkInfo.convolution) : new Convolution(3, 1, filter_count);
+        const network = networkInfo ? Network.load(networkInfo.network) : new Network(size, learningLate); // (layer per neurals, learning late)
+        if(!networkInfo){
+            network.init()
+        }
+        // 네트워크 생성 및 초기화 끝
+        // 그림판 관련 함수
         function canvas_clear(){
             // ctx.beginPath()
             // ctx.save();
@@ -152,224 +169,13 @@
 
         function draw(x, y){
             ctx.fillStyle = "#def";
-            ctx.beginPath();
             ctx.moveTo(tmp_pos[0], tmp_pos[1]);
+            ctx.beginPath();
             ctx.lineTo(x, y);
             ctx.arc(x, y, 3, 0, Math.PI * 2);
             ctx.stroke();
             ctx.fill()
             test()
-        }
-
-        const networkString = localStorage.getItem("networkInfo");
-        const networkInfo = networkString ? JSON.parse(networkString) : null;
-        const filter_count = networkInfo ? networkInfo.convolution.numFilters : 8;
-        let size = networkInfo ? networkInfo.network.size : [588, 60, 60, 10];
-        let learningLate = networkInfo ? networkInfo.network.learningLate : 0.001;
-        const convolution = networkInfo ? Convolution.load(networkInfo.convolution) : new Convolution(3, 1, filter_count);
-        const network = networkInfo ? Network.load(networkInfo.network) : new Network(size, learningLate); // (layer per neurals, learning late)
-        if(!networkInfo){
-            network.init()
-        }
-        // const convolution = new Convolution(3, 1, filter_count);
-        // const network = new Network(size, learningLate);
-        // network.init()
-        let convolution_train_count = 0;
-        function train(){
-            if(convolution_train_count++ < 10){
-                for(let i = 0; i < 100; i++)
-                    convolution.backward(test(0))
-            }
-            const key = document.querySelector("#key_value").value
-            const data = test(0)
-            const labels = new Array(10).fill(0).map((v, idx) => idx == parseInt(key)?1:-1);
-            for(let j = 0; j < data.length; j++){
-                const inputs = [] // new Array(output[j].width * output[j].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
-                for(let k = 0; k < data[j].data.length; k++){
-                    if(k != 0 && (k + 1) % 4 == 0)continue;
-                    inputs.push((data[j].data[k] / 255 - 0.5) * 2)
-                }
-                const result = network.train([inputs], [labels])
-                console.log(result)
-            }
-        }
-
-        async function delay(second = 1){
-            return await new Promise(resolve => {
-                setTimeout(() => {
-                    resolve(true)
-                }, second * 1000)
-            })
-        }
-
-        function save(){
-            const result = {}
-            result["convolution"] = convolution.get_convolution_data()
-            result["network"] = {
-                size,
-                learningLate,
-                info:network.get_network_data()
-            }
-            localStorage.setItem("networkInfo", JSON.stringify(result));
-        }
-
-        async function data_set_train(){
-            // images [
-            //     {
-            //         [key]:[(0 ~ 255) * 784 * 4]
-            //     }
-            // ]
-            try{
-                let loss = 0;
-                let sum = 0;
-                const split_index = 35000;
-                for(let i = 0; i < split_index * filter_count; i++){ // * filter_count
-                    const index = i % split_index;
-                    const key = Object.keys(images[index])
-                    const labels = new Array(10).fill(0).map((v, idx) => idx == parseInt(key)?1:-1);
-                    const data = images[index][key];
-                    const data_set = {
-                        data:new Uint8ClampedArray(28 * 28 * 4).fill(0).map((v, idx) => data[idx]),
-                        colorSpace:"srgb",
-                        height:28,
-                        width:28
-                    }
-                    const output = convolution.forward(data_set)
-                    const j = Math.floor(Math.random() * output.length)// Math.floor(i / split_index)
-                    // for(let j = 0; j < output.length; j++){
-                        // console.log(output)
-                        const inputs = [] // new Array(output[j].width * output[j].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
-                        for(let k = 0; k < output[j].data.length; k++){
-                            if(k != 0 && (k + 1) % 4 == 0)continue;
-                            inputs.push((output[j].data[k] / 255 - 0.5) * 2)
-                        }
-                        // console.log(key, inputs, labels)
-                        const result = network.train([inputs], [labels])
-                        if(Math.round(res[parseInt(key)].output) == 1){
-                            sum++;
-                        }
-                        loss += result;
-                        if(i % 1000 == 0){
-                            const tmp_ctx = copyCanvas[j].getContext("2d")
-                            const img = new ImageData(output[j].data, output[j].width, output[j].height)
-                            // console.log(img)
-                            tmp_ctx.putImageData(img, 0, 0);
-                            // if(j == output.length - 1){
-                                console.log(key, result, labels, network.forward(inputs).map(v => v.output));
-                                network.draw(network_ctx, networkCanvas.width, networkCanvas.height);
-                                await delay(0.01);
-                            // }
-                            console.log(loss / 1000)
-                            if(loss / 1000 < 0.1 && i > 10000) break
-                            loss = 0;
-                            sum = 0;
-                        }
-                    // }
-                }
-                console.log(loss / (images.length - split_index))
-                data_set_test(split_index)
-            }catch(e){
-                alert("데이터가 없습니다")
-            }
-        }
-
-        function data_set_test(split_index){
-            let loss = 0;
-            let sum = 0;
-            for(let i = split_index; i < images.length; i++){
-                const key = Object.keys(images[i])
-                const data = images[i][key];
-                const labels = new Array(10).fill(0).map((v, idx) => idx == parseInt(key)?1:-1);
-                const data_set = {
-                    data:new Uint8ClampedArray(28 * 28 * 4).fill(0).map((v, i) => data[i]),
-                    colorSpace:"srgb",
-                    height:28,
-                    width:28
-                }
-                const output = convolution.forward(data_set)
-                // const j = Math.floor(Math.random() * output.length)
-                for(let j = 0; j < output.length; j++){
-                    const inputs = [] // new Array(output[j].width * output[j].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
-                    for(let k = 0; k < output[j].data.length; k++){
-                        if(k != 0 && (k + 1) % 4 == 0)continue;
-                        inputs.push((output[j].data[k] / 255 - 0.5) * 2)
-                    }
-                    const res = network.forward(inputs)
-                    if(Math.round(res[parseInt(key)].output) == 1){
-                        sum++;
-                    }
-                    loss += network.getLoss(labels)
-                }
-            }
-            console.log("total loss", loss, sum / (filter_count * (images.length - split_index)) * 100, "%")
-        }
-
-        function test(mode = 1){
-            const id = ctx.getImageData(0, 0, myCanvas.width, myCanvas.height);
-            const data_set = {
-                data:new Uint8ClampedArray(224 * 224 * 4).fill(0).map((v, i) => id.data[i]),
-                colorSpace:"srgb",
-                height:224,
-                width:224
-            }
-            // 그냥 이미지 크기 줄이기
-            convolution.maxpooling(data_set)
-            convolution.maxpooling(data_set)
-            convolution.maxpooling(data_set)
-            // console.log(data_set)
-            
-            const output = convolution.forward(data_set)
-            // console.log(output)
-            if(mode > 0){
-                let res = new Array(10).fill(0);
-                for(let i in output){
-                    copyCanvas[i].width = output[i].width;
-                    copyCanvas[i].height = output[i].height;
-                    const tmp_ctx = copyCanvas[i].getContext("2d")
-                    const img = new ImageData(output[i].data, output[i].width, output[i].height)
-                    // console.log(img)
-                    tmp_ctx.putImageData(img, 0, 0);
-                    // console.log(output_g[i])
-                    // console.log(output_b[i])
-                    // const inputs = new Array(output[i].width * output[i].height * 4).fill(0) // .map((v, idx) => (output[i].data[idx] / 255 - 0.5) * 2)
-                    const inputs = [] // new Array(output[i].width * output[i].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
-                    for(let k = 0; k < output[i].data.length; k++){
-                        if(k != 0 && (k + 1) % 4 == 0)continue;
-                        inputs.push((output[i].data[k] / 255 - 0.5) * 2)
-                    }
-                    network.forward(inputs).map((v, j) => res[j] += v.output)
-                    // console.log(inputs, network.forward(inputs).map(v => v.output));
-                }
-                let max = -2;
-                let max_index;
-                for(let i in res){
-                    if(res[i] > max){
-                        max = res[i];
-                        max_index = i;
-                    }
-                }
-                const data = res.map(v => v / output.length)
-                const barWidth = 30;
-                const chartHeight = barChart.height - 15;
-                const chartWidth = barWidth * data.length;
-                const barSpacing = 10;
-                const maxValue = 1;
-
-                chart_ctx.clearRect(0, 0, barChart.width, barChart.height);
-
-                for (let i = 0; i < data.length; i++) {
-                    const value = data[i];
-                    const barHeight = (value + 1) / 2 * chartHeight;
-
-                    chart_ctx.fillStyle = value >= 0 ? 'green' : 'red';
-                    chart_ctx.fillRect(i * (barWidth + barSpacing), chartHeight - barHeight, barWidth, barHeight);
-                    chart_ctx.fillStyle = 'black';
-                    chart_ctx.fillText(i, i * (barWidth + barSpacing) + barWidth / 2, chartHeight + 10);
-                }
-                if(mode > 1)
-                    network.draw(network_ctx, networkCanvas.width, networkCanvas.height);
-            }
-            return output
         }
 
         let active = false;
@@ -401,6 +207,215 @@
                 draw(e.offsetX, e.offsetY)
                 tmp_pos = [e.offsetX, e.offsetY];
             }
+        }
+        // 그림판 관련 함수 끝
+        // const convolution = new Convolution(3, 1, filter_count);
+        // const network = new Network(size, learningLate);
+        // network.init()
+        // convolution 관련 수동 트레이닝
+        let convolution_train_count = 0;
+        function train(){
+            if(convolution_train_count++ < 10){
+                for(let i = 0; i < 100; i++)
+                    convolution.backward(test(0))
+            }
+            const key = document.querySelector("#key_value").value
+            const data = test(0)
+            const labels = new Array(10).fill(0).map((v, idx) => idx == parseInt(key)?1:-1);
+            for(let j = 0; j < data.length; j++){
+                const inputs = [] // new Array(output[j].width * output[j].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
+                for(let k = 0; k < data[j].data.length; k++){
+                    if(k != 0 && (k + 1) % 4 == 0)continue;
+                    inputs.push(data[j].data[k] / 255)
+                }
+                const result = network.train([inputs], [labels])
+                console.log(result)
+            }
+        }
+
+        // 늘 쓰던 거 (디버깅용 딜레이 함수)
+        async function delay(second = 1){
+            return await new Promise(resolve => {
+                setTimeout(() => {
+                    resolve(true)
+                }, second * 1000)
+            })
+        }
+
+        // 네트워크 저장
+        function save(){
+            const result = {}
+            result["convolution"] = convolution.get_convolution_data()
+            result["network"] = {
+                size,
+                learningLate,
+                info:network.get_network_data()
+            }
+            localStorage.setItem("networkInfo", JSON.stringify(result));
+        }
+
+        // 20분 정도 훈련(CPU AMD 5800x 기준)
+        async function data_set_train(){
+            // images [
+            //     {
+            //         [key]:[(0 ~ 255) * 784 * 4]
+            //     }, ...
+            // ]
+            try{
+                let loss = 0;
+                let sum = 0;
+                const split_index = 35000;
+                for(let i = 0; i < split_index * filter_count; i++){ // * filter_count
+                    const index = i % split_index;
+                    const key = Object.keys(images[index])
+                    const labels = new Array(10).fill(0).map((v, idx) => idx == parseInt(key)?1:-1);
+                    const data = images[index][key];
+                    const data_set = {
+                        data:new Uint8ClampedArray(28 * 28 * 4).fill(0).map((v, idx) => data[idx]),
+                        colorSpace:"srgb",
+                        height:28,
+                        width:28
+                    }
+                    const output = convolution.forward(data_set)
+                    const j = Math.floor(Math.random() * output.length)// Math.floor(i / split_index)
+                    // for(let j = 0; j < output.length; j++){
+                        // console.log(output)
+                        const inputs = [] // new Array(output[j].width * output[j].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
+                        for(let k = 0; k < output[j].data.length; k++){
+                            if(k != 0 && (k + 1) % 4 == 0)continue;
+                            inputs.push(output[j].data[k] / 255)
+                        }
+                        // console.log(key, inputs, labels)
+                        const result = network.train([inputs], [labels])
+                        if(Math.round(res[parseInt(key)].output) == 1){
+                            sum++;
+                        }
+                        loss += result;
+                        if(i % 1000 == 0){ // 중간 처리 결과 및 응답 확인
+                            const tmp_ctx = convCanvas[j].getContext("2d")
+                            const img = new ImageData(output[j].data, output[j].width, output[j].height)
+                            // console.log(img)
+                            tmp_ctx.putImageData(img, 0, 0);
+                            // if(j == output.length - 1){
+                                console.log(key, result, labels, network.forward(inputs).map(v => v.output));
+                                network.draw(network_ctx, networkCanvas.width, networkCanvas.height);
+                                await delay(0.01);
+                            // }
+                            console.log(loss / 1000)
+                            if(loss / 1000 < 0.1 && i > 10000) break
+                            loss = 0;
+                            sum = 0;
+                        }
+                    // }
+                }
+                console.log(loss / (images.length - split_index))
+                data_set_test(split_index)
+            }catch(e){
+                alert("데이터가 없습니다")
+            }
+        }
+
+        // 훈련 외 데이터로 정확도 테스트
+        function data_set_test(split_index){
+            let loss = 0;
+            let sum = 0;
+            for(let i = split_index; i < images.length; i++){
+                const key = Object.keys(images[i])
+                const data = images[i][key];
+                const labels = new Array(10).fill(0).map((v, idx) => idx == parseInt(key)?1:-1);
+                const data_set = {
+                    data:new Uint8ClampedArray(28 * 28 * 4).fill(0).map((v, i) => data[i]),
+                    colorSpace:"srgb",
+                    height:28,
+                    width:28
+                }
+                const output = convolution.forward(data_set)
+                // const j = Math.floor(Math.random() * output.length)
+                for(let j = 0; j < output.length; j++){
+                    const inputs = [] // new Array(output[j].width * output[j].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
+                    for(let k = 0; k < output[j].data.length; k++){
+                        if(k != 0 && (k + 1) % 4 == 0)continue;
+                        inputs.push((output[j].data[k] / 255 - 0.5) * 2)
+                    }
+                    const res = network.forward(inputs)
+                    if(Math.round(res[parseInt(key)].output) == 1){
+                        sum++;
+                    }
+                    loss += network.getLoss(labels)
+                }
+            }
+            console.log("total loss", loss, sum / (filter_count * (images.length - split_index)) * 100, "%")
+        }
+
+        // 그림판 convolution 처리 및 처리된 이미지 출력 및 반환
+        function test(mode = 1){
+            const id = ctx.getImageData(0, 0, myCanvas.width, myCanvas.height);
+            const data_set = {
+                data:new Uint8ClampedArray(224 * 224 * 4).fill(0).map((v, i) => id.data[i]),
+                colorSpace:"srgb",
+                height:224,
+                width:224
+            }
+            // 그냥 이미지 크기 줄이기
+            convolution.maxpooling(data_set)
+            convolution.maxpooling(data_set)
+            convolution.maxpooling(data_set)
+            // console.log(data_set)
+            
+            const output = convolution.forward(data_set)
+            // console.log(output)
+            if(mode > 0){
+                let res = new Array(10).fill(0);
+                for(let i in output){
+                    convCanvas[i].width = output[i].width;
+                    convCanvas[i].height = output[i].height;
+                    const tmp_ctx = convCanvas[i].getContext("2d")
+                    const img = new ImageData(output[i].data, output[i].width, output[i].height)
+                    // console.log(img)
+                    tmp_ctx.putImageData(img, 0, 0);
+                    // console.log(output_g[i])
+                    // console.log(output_b[i])
+                    // const inputs = new Array(output[i].width * output[i].height * 4).fill(0) // .map((v, idx) => (output[i].data[idx] / 255 - 0.5) * 2)
+                    const inputs = [] // new Array(output[i].width * output[i].height * 3).fill(0).map((v, idx) => (output[j].data[idx] / 255 - 0.5) * 2);
+                    for(let k = 0; k < output[i].data.length; k++){
+                        if(k != 0 && (k + 1) % 4 == 0)continue;
+                        inputs.push((output[i].data[k] / 255 - 0.5) * 2)
+                    }
+                    network.forward(inputs).map((v, j) => res[j] += v.output)
+                    // console.log(inputs, network.forward(inputs).map(v => v.output));
+                }
+                let max = -Infinity;
+                let max_index;
+                for(let i in res){
+                    if(res[i] > max){
+                        max = res[i];
+                        max_index = i;
+                    }
+                }
+
+                // 바차트로 결과 출력
+                const data = res.map(v => v / output.length)
+                const barWidth = 30;
+                const chartHeight = barChart.height - 15;
+                const chartWidth = barWidth * data.length;
+                const barSpacing = 10;
+                const maxValue = 1;
+
+                chart_ctx.clearRect(0, 0, barChart.width, barChart.height);
+
+                for (let i = 0; i < data.length; i++) {
+                    const value = data[i];
+                    const barHeight = (value + 1) / 2 * chartHeight;
+
+                    chart_ctx.fillStyle = value >= 0 ? 'green' : 'red';
+                    chart_ctx.fillRect(i * (barWidth + barSpacing), chartHeight - barHeight, barWidth, barHeight);
+                    chart_ctx.fillStyle = 'black';
+                    chart_ctx.fillText(i, i * (barWidth + barSpacing) + barWidth / 2, chartHeight + 10);
+                }
+                if(mode > 1)
+                    network.draw(network_ctx, networkCanvas.width, networkCanvas.height);
+            }
+            return output
         }
 
     </script>

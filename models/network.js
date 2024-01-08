@@ -7,6 +7,7 @@ class Network {
         this.learningRate = learningRate;
     }
 
+    // 저장된 네트워크 적용
     static load(info){
         const network = new Network(info.size, info.learningRate)
         network.init(info.info)
@@ -65,14 +66,18 @@ class Network {
     }
 
     backward(targets) {
+        // 출력 값 cost 산정
         for (let i = 0; i < this.network[this.network.length - 1].length; i++) {
             this.network[this.network.length - 1][i].backpropagateOutput(targets[i], targets.length);
         }
     
+        // 대체 언제 완성되는데?
+        // 다음 레이어의 cost로 활성함수로 정규화된 값 error 변수 저장
         for (let i = this.network.length - 1; i > 0; i--) {
             for (const node of this.network[i]) {
                 node.backpropagateHidden();
             }
+            // 이전 레이어에 연결된 각
             let prevLayer = this.network[i - 1];
             for (let j = 0; j < prevLayer.length; j++) {
                 let node = prevLayer[j];
